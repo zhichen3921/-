@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BOSS 当前岗位采集</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <div class="canopy" aria-hidden="true"></div>
+    <main class="popup-shell">
+      <header class="brand-row">
+        <div class="brand-mark" aria-hidden="true"><span></span></div>
+        <div>
+          <p class="kicker">LOCAL JOB CLIPPER</p>
+          <h1>采下这一份机会</h1>
+        </div>
+        <span id="connection-dot" class="connection-dot" title="本地连接状态"></span>
+      </header>
+
+      <section id="pair-panel" class="panel setup-panel" hidden>
+        <div class="step-number">01</div>
+        <h2>先连接你的投递台</h2>
+        <p>在投递台“更新中心”生成配对令牌，复制到这里。扩展不会读取登录密码或 Cookie。</p>
+        <label class="field token-field">
+          <span>扩展配对令牌</span>
+          <input id="pair-token" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴 extensionToken">
+        </label>
+        <div class="button-row">
+          <button id="save-token" class="button primary" type="button">保存并连接</button>
+          <button class="button ghost" data-open-desk type="button">打开投递台</button>
+        </div>
+      </section>
+
+      <section id="collector-panel" class="panel collector-panel" hidden>
+        <div id="idle-view" class="idle-view">
+          <div class="leaf-orbit" aria-hidden="true"><i></i><b>1</b></div>
+          <h2>只读取当前岗位</h2>
+          <p>不会翻页、扫描列表、发送消息或改变当前网页。</p>
+          <button id="collect-button" class="button harvest" type="button">
+            <span>采集当前岗位</span><b aria-hidden="true">↗</b>
+          </button>
+        </div>
+
+        <div id="loading-view" class="loading-view" hidden>
+          <div class="pulse-seed" aria-hidden="true"></div>
+          <strong>正在辨认当前页面…</strong>
+          <span>仅读取你此刻看到的岗位详情</span>
+        </div>
+
+        <form id="job-form" class="job-form" hidden>
+          <div id="result-banner" class="result-banner" data-route="review">
+            <div><span id="result-label">等待评估</span><small id="result-detail">请核对字段</small></div>
+            <strong id="score-value">—</strong>
+          </div>
+
+          <div id="missing-fields" class="missing-fields" hidden></div>
+
+          <label class="field field-title">
+            <span>岗位名称 <b>必填</b></span>
+            <input name="title" maxlength="100" required>
+          </label>
+          <div class="field-pair">
+            <label class="field">
+              <span>公司</span>
+              <input name="company" maxlength="100">
+            </label>
+            <label class="field">
+              <span>地点</span>
+              <input name="location" maxlength="100">
+            </label>
+          </div>
+          <div class="field-pair">
+            <label class="field">
+              <span>薪资</span>
+              <input name="salary" maxlength="100">
+            </label>
+            <label class="field">
+              <span>岗位链接</span>
+              <input name="url" type="url" maxlength="1000">
+            </label>
+          </div>
+          <label class="field">
+            <span>岗位描述</span>
+            <textarea name="description" rows="6" maxlength="12000"></textarea>
+          </label>
+
+          <div id="match-reasons" class="match-reasons" hidden></div>
+
+          <label id="force-save-wrap" class="force-save" hidden>
+            <input id="force-save" type="checkbox">
+            <span><b>仍然保存</b> — 当前不足 60 分，我已复核并希望放入队列。</span>
+          </label>
+
+          <div class="form-actions">
+            <button id="preview-button" class="button ghost" type="submit">重新评估</button>
+            <button id="save-button" class="button primary" type="button" disabled>加入投递队列</button>
+          </div>
+        </form>
+
+        <section id="message-view" class="message-view" hidden>
+          <div id="message-glyph" class="message-glyph" aria-hidden="true">✓</div>
+          <h2 id="message-title">已加入投递台</h2>
+          <p id="message-copy"></p>
+          <div class="button-row center">
+            <button id="collect-again" class="button ghost" type="button">采集另一个岗位</button>
+            <button class="button primary" data-open-desk type="button">打开投递台</button>
+          </div>
+        </section>
+      </section>
+
+      <footer>
+        <button data-open-desk type="button">投递台</button>
+        <span>·</span>
+        <button id="open-options" type="button">连接设置</button>
+        <span class="privacy-note">令牌仅存于本机扩展</span>
+      </footer>
+      <p id="live-status" class="sr-only" role="status" aria-live="polite"></p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

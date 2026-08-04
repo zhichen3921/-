@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>投递台扩展连接设置</title>
+    <style>
+      :root{--forest:#17382b;--lime:#c8f06b;--paper:#f2f3e9;--cream:#fcfdf8;--line:#d8dfd2;--muted:#718078;--rust:#b95a3d}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:32px;color:#14231d;background:radial-gradient(circle at 78% 18%,#dff3ad 0,transparent 26%),var(--paper);font-family:"Microsoft YaHei UI","Microsoft YaHei",sans-serif}.shell{width:min(650px,100%);background:rgba(252,253,248,.9);border:1px solid var(--line);border-radius:22px;padding:36px;box-shadow:0 24px 70px rgba(23,56,43,.13)}.eyebrow{margin:0 0 8px;color:#78915f;font:700 10px Consolas,monospace;letter-spacing:.16em}h1{margin:0;font:700 37px/1.08 Georgia,"Microsoft YaHei UI",serif;letter-spacing:-.055em}header p{max-width:520px;color:var(--muted);font-size:13px;line-height:1.8}.steps{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:27px 0}.steps div{padding:15px;border:1px solid var(--line);border-radius:11px;background:#f7f8ef}.steps b{display:block;color:#8b9a91;font:600 9px Consolas,monospace;margin-bottom:6px}.steps span{font-size:11px;line-height:1.6}.field span{display:block;margin-bottom:7px;color:#57685f;font-size:10px;font-weight:700}.field input{width:100%;border:1px solid var(--line);border-radius:9px;background:white;padding:13px;color:#14231d;font:500 12px Consolas,monospace;outline:none}.field input:focus{border-color:#8cab71;box-shadow:0 0 0 4px rgba(200,240,107,.28)}.actions{display:flex;gap:9px;margin-top:15px}button{border:1px solid transparent;border-radius:8px;padding:11px 15px;font:700 11px "Microsoft YaHei UI",sans-serif;cursor:pointer}button.primary{color:white;background:var(--forest)}button.secondary{color:#52645a;background:white;border-color:var(--line)}button.danger{color:var(--rust);background:transparent;margin-left:auto}.status{min-height:22px;margin:15px 0 0;color:var(--muted);font-size:11px}.privacy{margin-top:22px;padding-top:17px;border-top:1px solid var(--line);color:var(--muted);font-size:10px;line-height:1.7}@media(max-width:560px){.shell{padding:24px}.steps{grid-template-columns:1fr}.actions{flex-wrap:wrap}button.danger{margin-left:0}}
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <p class="eyebrow">PRIVATE LOCAL PAIRING</p>
+        <h1>连接 BOSS 采集扩展</h1>
+        <p>配对只授权扩展把你主动采集的当前岗位送到本机投递台。密码、Cookie、聊天记录和验证码不在采集范围内。</p>
+      </header>
+      <section class="steps" aria-label="配对步骤">
+        <div><b>01 / DESK</b><span>启动投递台，在“更新中心”点击生成扩展令牌。</span></div>
+        <div><b>02 / EXTENSION</b><span>复制 extensionToken，粘贴到下方并保存。</span></div>
+      </section>
+      <label class="field">
+        <span>扩展配对令牌</span>
+        <input id="extension-token" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴 extensionToken">
+      </label>
+      <div class="actions">
+        <button id="save-token" class="primary" type="button">保存令牌</button>
+        <button id="open-desk" class="secondary" type="button">打开投递台</button>
+        <button id="clear-token" class="danger" type="button">清除连接</button>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <p class="privacy">令牌保存在 Edge 扩展自己的本地存储中。扩展只在你点击工具栏图标并选择“采集当前岗位”后，临时读取当前标签页。</p>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

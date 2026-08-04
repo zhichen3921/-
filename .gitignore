@@ -1,0 +1,40 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+
+# Local application data
+data/*
+!data/.gitkeep
+logs/
+*.log
+
+# Browser profiles and local automation state
+.boss-edge-profile/
+.browser-profile/
+browser/*.log
+
+# Local-only resume/profile overrides
+shared/resume-profile.local.mjs
+client/profile.local.js
+
+# Local tooling and planning artifacts
+.agents/
+.codex/
+.git-open-source/
+docs/superpowers/
+updates/update-prompt.md
+notes.md
+task_plan.md
+启动BOSS专用浏览器.cmd
+深圳AI实习打招呼助手.cmd
+
+# Environment and editor files
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

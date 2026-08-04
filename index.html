@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>投递台 · 深圳 AI 实习</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-legacy-migration="enabled">
+  <div class="grain"></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">投</span>
+        <div><strong>投递台</strong><small>APPLICATION DESK</small></div>
+      </div>
+      <nav role="tablist" aria-label="投递台功能区">
+        <button id="nav-radar" class="nav-item active" role="tab" aria-controls="radar-section" aria-selected="true" aria-current="page" data-section="radar"><span>01</span>岗位雷达</button>
+        <button id="nav-queue" class="nav-item" role="tab" aria-controls="queue-section" aria-selected="false" tabindex="-1" data-section="queue"><span>02</span>投递队列 <b id="nav-count">0</b></button>
+        <button id="nav-review" class="nav-item" role="tab" aria-controls="review-section" aria-selected="false" tabindex="-1" data-section="review"><span>03</span>待复核 <b id="review-nav-count">0</b></button>
+        <button id="nav-updates" class="nav-item" role="tab" aria-controls="updates-section" aria-selected="false" tabindex="-1" data-section="updates"><span>04</span>更新中心</button>
+        <button id="nav-preferences" class="nav-item" role="tab" aria-controls="preferences-section" aria-selected="false" tabindex="-1" data-section="preferences"><span>05</span>求职偏好</button>
+        <button id="nav-profile" class="nav-item" role="tab" aria-controls="profile-section" aria-selected="false" tabindex="-1" data-section="profile"><span>06</span>简历画像</button>
+      </nav>
+      <div class="profile-mini">
+        <div class="avatar" data-profile-initial>?</div>
+        <div><strong data-profile-name>Your Name</strong><small><span data-profile-degree>Your degree</span> · <span data-profile-graduation>2028</span></small></div>
+      </div>
+      <div class="local-status"><i></i>数据仅保存在本机</div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow">SHENZHEN · AI INTERNSHIP</p><h1 id="page-title">岗位雷达</h1></div>
+        <div class="top-actions">
+          <button class="button secondary" id="import-btn">导入备份</button>
+          <button class="button secondary" id="export-btn">导出数据</button>
+          <button class="button primary" id="add-job-btn">＋ 添加岗位</button>
+        </div>
+      </header>
+
+      <section id="radar-section" class="section active-section" role="tabpanel" aria-labelledby="nav-radar" aria-hidden="false">
+        <div class="hero">
+          <div class="hero-copy">
+            <span class="index-label">求职冲刺 / 2026</span>
+            <h2>别海投。<br><em>投得更准。</em></h2>
+            <p>搜索深圳 AI 实习，把感兴趣的岗位加入队列。工作台会依据你的项目、技能和毕业年份给出匹配建议。</p>
+          </div>
+          <div class="score-orbit">
+            <div class="orbit-ring ring-one"></div><div class="orbit-ring ring-two"></div>
+            <div class="orbit-core"><strong id="total-count">0</strong><span>候选岗位</span></div>
+            <span class="orbit-note note-a">PYTHON</span><span class="orbit-note note-b">ML / SHAP</span><span class="orbit-note note-c">LLM API</span>
+          </div>
+        </div>
+
+        <div class="search-block">
+          <div class="block-head"><div><span class="index-label">01 / 搜索入口</span><h3>公开岗位已替你筛进队列</h3></div><p>队列会显示来源、核验日期与匹配理由；沟通仍由你最终确认。</p></div>
+          <div class="search-grid" id="search-grid"></div>
+        </div>
+
+        <div class="how-it-works">
+          <article><span>1</span><div><strong>自动初筛</strong><p>公开岗位按地点、届别和技能要求筛选。</p></div></article>
+          <article><span>2</span><div><strong>进入队列</strong><p>合适与冲刺岗位自动加入，并标注差距。</p></div></article>
+          <article><span>3</span><div><strong>确认沟通</strong><p>打开原岗位核验后，复制话术由你发送。</p></div></article>
+        </div>
+      </section>
+
+      <section id="queue-section" class="section" role="tabpanel" aria-labelledby="nav-queue" aria-hidden="true">
+        <div class="stats" id="stats"></div>
+        <div class="queue-head">
+          <div><span class="index-label">02 / 本地岗位池</span><h2>下一份值得沟通的岗位</h2></div>
+          <div class="filter-tabs" id="filter-tabs">
+            <button class="active" data-filter="all">全部</button>
+            <button data-filter="recommended">主队列</button>
+            <button data-filter="stretch">待复核</button>
+            <button data-filter="todo">待沟通</button>
+            <button data-filter="contacted">已沟通</button>
+            <button data-filter="replied">已回复</button>
+            <button data-filter="skipped">已跳过</button>
+          </div>
+        </div>
+        <div class="compound-filter-shell">
+          <div class="compound-filter-intro">
+            <div><span class="index-label">FILTER INDEX</span><strong>组合筛选</strong></div>
+            <p>同一组选项取并集，不同筛选项叠加生效。</p>
+          </div>
+          <div id="compound-filter-panel"></div>
+        </div>
+        <div class="job-list" id="job-list"></div>
+      </section>
+
+      <section id="review-section" class="section" role="tabpanel" aria-labelledby="nav-review" aria-hidden="true">
+        <div class="review-masthead">
+          <div>
+            <span class="index-label">03 / HUMAN CHECK</span>
+            <h2>机器不确定的，<em>留给你判断。</em></h2>
+            <p>这里收纳 60–74 分或信息不足的岗位。先核验毕业年份、到岗要求和技术栈，再决定是否沟通。</p>
+          </div>
+          <div class="review-counter"><strong id="review-count">0</strong><span>待复核</span></div>
+        </div>
+        <div class="compound-filter-shell compact-filter-shell">
+          <div class="compound-filter-intro">
+            <div><span class="index-label">REVIEW FILTER</span><strong>进一步缩小范围</strong></div>
+            <p>筛选条件与投递队列同步。</p>
+          </div>
+          <div id="review-filter-panel"></div>
+        </div>
+        <div class="job-list" id="review-job-list"></div>
+      </section>
+
+      <section id="updates-section" class="section" role="tabpanel" aria-labelledby="nav-updates" aria-hidden="true">
+        <div id="update-center-root"></div>
+      </section>
+
+      <section id="preferences-section" class="section" role="tabpanel" aria-labelledby="nav-preferences" aria-hidden="true">
+        <div id="preferences-root"></div>
+      </section>
+
+      <section id="profile-section" class="section" role="tabpanel" aria-labelledby="nav-profile" aria-hidden="true">
+        <div class="profile-card">
+            <div class="profile-title"><span class="index-label">06 / 匹配基准</span><h2 data-profile-name>Your Name</h2><p><span data-profile-school>Your school</span> · <span data-profile-degree>Your degree</span> · <span data-profile-graduation>2028</span></p></div>
+          <div class="profile-columns">
+            <div><small>目标</small><strong>AI 相关实习</strong><p>AI 应用、机器学习、数据分析、大模型工程</p></div>
+            <div><small>项目证据</small><strong data-profile-evidence>relevant project experience</strong><p>将你的项目成果、数据规模和技术栈写在画像配置中。</p></div>
+            <div><small>技能组合</small><strong>AI × 你的专业背景</strong><p data-profile-skills-summary>Python、机器学习与相关工程技能</p></div>
+          </div>
+          <div class="skill-cloud" id="profile-skills"></div>
+        </div>
+        <div class="privacy-card"><strong>隐私边界</strong><p>工作台不保存密码、Cookie、验证码或聊天记录。直接以 <code>file://</code> 打开时，岗位保存在当前浏览器的 localStorage；通过本地服务打开时，岗位保存在本机项目的 <code>data/state.json</code>。</p></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="job-modal">
+    <form class="modal" id="job-form">
+      <div class="modal-head"><div><span class="index-label">岗位采集</span><h2 id="modal-title">添加岗位</h2></div><button type="button" class="icon-button" data-close>×</button></div>
+      <input type="hidden" id="job-id" />
+      <div class="field-grid">
+        <label>岗位名称<input id="job-title" required placeholder="如：大模型应用开发实习生" /></label>
+        <label>公司名称<input id="job-company" required placeholder="如：某科技公司" /></label>
+        <label>工作地点<input id="job-location" value="深圳" placeholder="如：深圳·南山" /></label>
+        <label>岗位链接<input id="job-url" type="url" placeholder="粘贴 BOSS 岗位链接" /></label>
+      </div>
+      <label>岗位要求<textarea id="job-description" rows="8" placeholder="粘贴岗位职责和任职要求。内容越完整，匹配判断越准确。"></textarea></label>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">计算匹配并加入</button></div>
+    </form>
+  </div>
+
+  <div class="modal-backdrop" id="greeting-modal">
+    <div class="modal greeting-modal">
+      <div class="modal-head"><div><span class="index-label">个性化话术</span><h2 id="greeting-title">沟通前确认</h2></div><button type="button" class="icon-button" data-close>×</button></div>
+      <div class="match-summary" id="match-summary"></div>
+      <label>招呼语<textarea id="greeting-text" rows="7"></textarea></label>
+      <p class="hint">请检查岗位和公司名称是否正确。复制不会自动发送。</p>
+      <div class="modal-actions spread"><button class="button danger-text" id="skip-job-btn">跳过这个岗位</button><div><button class="button secondary" id="open-job-btn">打开岗位</button><button class="button primary" id="copy-greeting-btn">复制招呼语</button></div></div>
+    </div>
+  </div>
+
+  <input type="file" id="import-file" accept="application/json" hidden />
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <script src="curated-jobs.js"></script>
+  <script src="client/filters.js"></script>
+  <script src="client/preferences.js"></script>
+  <script src="client/profile.js"></script>
+  <script src="client/profile.local.js" onerror="this.remove()"></script>
+  <script src="client/update-center.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

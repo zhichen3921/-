@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "投递台 · BOSS 当前岗位采集",
+  "version": "0.1.0",
+  "description": "由你点击后读取当前 BOSS 岗位，预览匹配结果，再手动加入本地投递台。",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:43127/*"
+  ],
+  "action": {
+    "default_title": "采集当前 BOSS 岗位",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "options_page": "options.html"
+}

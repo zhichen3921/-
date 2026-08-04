@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"></head>
+  <body>
+    <section class="job-detail-container inactive" aria-hidden="true" style="display:none">
+      <a href="/job_detail/hidden-old.html"><h1 class="job-title">隐藏旧岗位</h1></a>
+      <div class="company-name">隐藏公司</div>
+      <div class="job-sec-text">不应被采集。</div>
+    </section>
+    <section class="job-detail-container active" data-active="true">
+      <a href="/job_detail/visible-agent.html?ka=detail"><h1 class="job-title">可见 Agent 实习生</h1></a>
+      <div class="company-name">可见科技</div>
+      <div class="job-location">深圳</div>
+      <div class="job-sec-text">这是当前活动岗位的描述。</div>
+    </section>
+    <section class="job-detail-container inactive" data-active="false" style="visibility:hidden">
+      <a href="/job_detail/hidden-second.html"><h1 class="job-title">另一个隐藏岗位</h1></a>
+    </section>
+    <section class="job-detail-container hidden">
+      <a href="/job_detail/hidden-by-state.html"><h1 class="job-title">状态隐藏岗位</h1></a>
+      <div class="job-sec-text">带有 hidden 状态类的旧面板。</div>
+    </section>
+  </body>
+</html>
