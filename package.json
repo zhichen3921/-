@@ -9,15 +9,17 @@
   "type": "module",
   "scripts": {
     "start": "node server/server.mjs",
+    "build:demo": "node scripts/build-demo.mjs",
     "test:unit": "node --test tests/store.test.mjs tests/matcher.test.mjs tests/deduplicate.test.mjs tests/server-api.test.mjs tests/migration.test.mjs tests/filters.test.mjs tests/update-batch.test.mjs tests/public-update-validation.test.mjs tests/update-run-lock.test.mjs",
     "test:updates": "node --test tests/update-batch.test.mjs tests/public-update-validation.test.mjs tests/update-run-lock.test.mjs",
     "test:extension": "node --test tests/boss-extractor.test.mjs tests/extension-manifest.test.mjs tests/extension-popup-state.test.mjs",
     "test:e2e": "node tests/local-core-e2e.mjs",
-    "test:all": "npm run test:unit && npm run test:updates && npm run test:extension && npm run test:app && npm run test:e2e",
+    "test:all": "npm run test:unit && npm run test:updates && npm run test:extension && npm run test:app && npm run test:e2e && npm run test:demo",
     "browser:check": "node browser/check-playwright.mjs",
     "browser:open": "node browser/open-boss-manual.mjs",
     "browser:playwright-debug": "node browser/open-boss.mjs",
-    "test:app": "node tests/app-smoke.mjs"
+    "test:app": "node tests/app-smoke.mjs",
+    "test:demo": "npm run build:demo && node tests/demo-site-smoke.mjs"
   },
   "dependencies": {
     "playwright": "^1.57.0"

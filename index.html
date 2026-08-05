@@ -126,6 +126,12 @@
           </div>
           <div class="skill-cloud" id="profile-skills"></div>
         </div>
+        <div class="privacy-card resume-upload-card">
+          <strong>上传你的简历</strong>
+          <p>支持 PDF、DOCX、TXT 和 Markdown。文件只在当前浏览器中解析，不会上传到服务器；解析出的画像用于岗位匹配。</p>
+          <button class="button primary" id="resume-upload-btn" type="button">选择简历文件</button>
+          <span class="hint" id="resume-upload-status">尚未上传简历，当前使用示例画像。</span>
+        </div>
         <div class="privacy-card"><strong>隐私边界</strong><p>工作台不保存密码、Cookie、验证码或聊天记录。直接以 <code>file://</code> 打开时，岗位保存在当前浏览器的 localStorage；通过本地服务打开时，岗位保存在本机项目的 <code>data/state.json</code>。</p></div>
       </section>
     </main>
@@ -157,6 +163,7 @@
   </div>
 
   <input type="file" id="import-file" accept="application/json" hidden />
+  <input type="file" id="resume-file" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" hidden />
   <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="curated-jobs.js"></script>
   <script src="client/filters.js"></script>
@@ -164,6 +171,8 @@
   <script src="client/profile.js"></script>
   <script src="client/profile.local.js" onerror="this.remove()"></script>
   <script src="client/update-center.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
