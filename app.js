@@ -1,8 +1,56 @@
 const STORAGE_KEY = 'applicationDesk.v2';
 const SHENZHEN_CODE = '101280600';
-const IS_FILE_MODE = window.location.protocol === 'file:';
-const FILE_BRIDGE_REQUESTED = IS_FILE_MODE
+const DEMO_QUERY = new URLSearchParams(window.location.search);
+const IS_DEMO_MODE = DEMO_QUERY.get('demo') === '1'
+  || window.location.hostname.endsWith('.github.io');
+const IS_FILE_MODE = window.location.protocol === 'file:' || IS_DEMO_MODE;
+const FILE_BRIDGE_REQUESTED = window.location.protocol === 'file:'
   && new URLSearchParams(window.location.search).get('migration-bridge') === '1';
+const PROFILE_STORAGE_KEY = 'applicationDesk.resumeProfile.v1';
+const RESUME_SKILL_LIBRARY = [
+  ['Python', ['python']],
+  ['Java', ['java']],
+  ['JavaScript', ['javascript', 'js']],
+  ['TypeScript', ['typescript', 'ts']],
+  ['SQL', ['sql', 'mysql', 'postgresql']],
+  ['C++', ['c++', 'cpp']],
+  ['机器学习', ['机器学习', 'machine learning', 'scikit-learn', 'sklearn']],
+  ['深度学习', ['深度学习', 'deep learning', 'pytorch', 'tensorflow']],
+  ['大模型 / LLM', ['大模型', 'llm', 'large language model', 'rag', 'prompt']],
+  ['数据分析', ['数据分析', 'data analysis', 'pandas', 'numpy']],
+  ['React', ['react']],
+  ['Vue', ['vue']],
+  ['Node.js', ['node.js', 'nodejs']],
+  ['Docker', ['docker']],
+  ['Git', ['git', 'github']]
+];
+
+function normalizeResumeProfile(input = {}) {
+  const skills = Array.isArray(input.skills) ? input.skills : [];
+  return {
+    name: String(input.name || 'Your Name').trim().slice(0, 80),
+    school: String(input.school || 'Your school').trim().slice(0, 120),
+    degree: String(input.degree || 'Your degree / current status').trim().slice(0, 120),
+    graduation: String(input.graduation || input.graduationYear || '2028').trim().slice(0, 20),
+    evidenceSummary: String(input.evidenceSummary || input.evidence?.[0] || 'relevant project experience').trim().slice(0, 240),
+    skills: skills.map((skill) => ({
+      label: String(skill?.label || '').trim().slice(0, 40),
+      terms: Array.isArray(skill?.terms) ? skill.terms.map(String).slice(0, 12) : []
+    })).filter((skill) => skill.label && skill.terms.length)
+  };
+}
+
+function loadResumeProfile() {
+  if (IS_FILE_MODE) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || 'null');
+      if (stored && typeof stored === 'object') return normalizeResumeProfile(stored);
+    } catch (_) {}
+  }
+  return normalizeResumeProfile(window.APPLICATION_DESK_PROFILE || {});
+}
+
+let resume = loadResumeProfile();
 const {
   availableFilterOptions,
   createEmptyFilters,
@@ -17,8 +65,6 @@ const {
 const {
   renderUpdateCenter
 } = window.ApplicationDeskUpdateCenter;
-
-const resume = window.APPLICATION_DESK_PROFILE;
 
 const searches = [
   ['AI 实习生', 'AI实习生', '综合入口'],
@@ -321,6 +367,103 @@ function renderProfile() {
   $$('[data-profile-skills-summary]').forEach((node) => { node.textContent = skills.slice(0, 6).map((skill) => skill.label).join('、'); });
   const skillsCloud = $('#profile-skills');
   if (skillsCloud) skillsCloud.innerHTML = skills.map((skill) => `<span>${escapeHtml(skill.label)}</span>`).join('');
+}
+
+function profileFromResumeText(text) {
+  const cleanText = String(text || '').replace(/\r/g, '').replace(/[ \t]+/g, ' ');
+  const lines = cleanText.split('\n').map((line) => line.trim()).filter(Boolean);
+  const firstMatch = (patterns, fallback) => {
+    for (const line of lines) {
+      for (const pattern of patterns) {
+        const match = line.match(pattern);
+        if (match?.[1]) return match[1].trim().slice(0, 120);
+      }
+    }
+    return fallback;
+  };
+
+  const name = firstMatch([/(?:姓名|name)\s*[:：|丨-]\s*([^|丨]+)/i], lines[0] || 'Your Name');
+  const school = firstMatch([/(?:学校|院校|教育经历|university|college)\s*[:：|丨-]?\s*([^|丨]+)/i], 'Your school');
+  const degree = firstMatch([/(?:学历|学位|degree)\s*[:：|丨-]?\s*([^|丨]+)/i], 'Your degree / current status');
+  const graduation = firstMatch([/(20\d{2})\s*(?:届|年毕业|graduat)/i], '2028');
+  const normalized = cleanText.toLowerCase();
+  const skills = RESUME_SKILL_LIBRARY
+    .filter(([, terms]) => terms.some((term) => normalized.includes(term.toLowerCase())))
+    .map(([label, terms]) => ({ label, terms }));
+  const evidenceLine = lines.find((line) => /项目|实习|工作经历|project|intern|experience/i.test(line))
+    || '从上传简历中提取的项目与经历';
+
+  return normalizeResumeProfile({
+    name,
+    school,
+    degree,
+    graduation,
+    evidenceSummary: evidenceLine,
+    skills: skills.length ? skills : normalizeResumeProfile(window.APPLICATION_DESK_PROFILE || {}).skills
+  });
+}
+
+async function parseResumeFile(file) {
+  const extension = String(file.name || '').split('.').pop().toLowerCase();
+  if (['txt', 'md'].includes(extension) || file.type.startsWith('text/')) {
+    return { text: await file.text() };
+  }
+  if (extension === 'json') {
+    const parsed = JSON.parse(await file.text());
+    return { profile: parsed.profile || parsed.resume || parsed };
+  }
+  if (extension === 'pdf' || file.type === 'application/pdf') {
+    if (!window.pdfjsLib) throw new Error('PDF 解析组件加载失败，请刷新页面后重试');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const document = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const pages = [];
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pages.push(content.items.map((item) => item.str).join(' '));
+    }
+    return { text: pages.join('\n') };
+  }
+  if (extension === 'docx') {
+    if (!window.mammoth) throw new Error('DOCX 解析组件加载失败，请刷新页面后重试');
+    const result = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return { text: result.value };
+  }
+  throw new Error('暂不支持该文件格式，请上传 PDF、DOCX、TXT 或 Markdown');
+}
+
+function refreshJobsForResume() {
+  state.jobs = state.jobs.map((job) => {
+    const analysis = analyzeJob(job);
+    const refreshed = { ...job, ...analysis };
+    refreshed.route = analysis.verdict === 'good' ? 'queue' : analysis.verdict === 'unknown' ? 'review' : 'excluded';
+    refreshed.greeting = makeGreeting(refreshed);
+    return refreshed;
+  });
+  saveState();
+  renderProfile();
+  renderAll();
+}
+
+async function handleResumeUpload(file) {
+  const status = $('#resume-upload-status');
+  if (status) status.textContent = '正在本地解析简历……';
+  try {
+    const parsed = await parseResumeFile(file);
+    resume = parsed.profile
+      ? normalizeResumeProfile(parsed.profile)
+      : profileFromResumeText(parsed.text);
+    if (IS_FILE_MODE && !FILE_BRIDGE_REQUESTED) {
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(resume));
+    }
+    refreshJobsForResume();
+    if (status) status.textContent = `已载入 ${file.name}；识别到 ${resume.skills.length} 项技能。`;
+    toast('简历画像已更新，岗位匹配已重新计算');
+  } catch (error) {
+    console.error('Resume upload failed:', error);
+    if (status) status.textContent = `解析失败：${error.message}`;
+    toast(`简历解析失败：${error.message}`);
+  }
 }
 
 function routeForJob(job) {
@@ -895,6 +1038,11 @@ $('#skip-job-btn').addEventListener('click', () => { if (activeGreetingId) updat
 $('#export-btn').addEventListener('click', exportData);
 $('#import-btn').addEventListener('click', () => $('#import-file').click());
 $('#import-file').addEventListener('change', (event) => { if (event.target.files[0]) importData(event.target.files[0]); event.target.value = ''; });
+$('#resume-upload-btn')?.addEventListener('click', () => $('#resume-file')?.click());
+$('#resume-file')?.addEventListener('change', (event) => {
+  if (event.target.files[0]) void handleResumeUpload(event.target.files[0]);
+  event.target.value = '';
+});
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModals(); });
 
 if (IS_FILE_MODE) {

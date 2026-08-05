@@ -7,6 +7,9 @@ coverage/
 # Local application data
 data/*
 !data/.gitkeep
+!data/update-batches/
+data/update-batches/*
+!data/update-batches/2026-07-31-shenzhen-ai-v1.json
 logs/
 *.log
 
@@ -38,3 +41,4 @@ task_plan.md
 .vscode/
 .DS_Store
 Thumbs.db
+_site/
