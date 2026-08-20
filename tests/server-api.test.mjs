@@ -224,9 +224,6 @@ test('preferences, individual jobs, state, and update status are backed by the s
   assert.equal(state.state.jobs.length, 1);
   assert.equal(state.state.preferences.reviewThreshold, 65);
 
-  const updates = await fetch(`${app.url}/api/updates/status`)
-    .then((response) => response.json());
-  assert.equal(updates.updates.status, 'idle');
 });
 
 test('invalid preferences return 400 INVALID_PREFERENCES without changing state', async (t) => {
@@ -726,59 +723,6 @@ test('JSON bodies are limited to 1 MiB and invalid URLs are rejected', async (t)
   }));
   assert.equal(invalidUrl.response.status, 400);
   assert.equal(invalidUrl.body.error.code, 'INVALID_JOB');
-});
-
-test('batch imports skip excluded jobs, remain idempotent, and update runner is a structured 501 placeholder', async (t) => {
-  const app = await startTestServer();
-  t.after(() => app.close());
-  const headers = {
-    'content-type': 'application/json',
-    'x-desk-token': app.token
-  };
-  const batch = {
-    id: 'batch-test-1',
-    jobs: [
-      {
-        title: '数据分析实习生',
-        company: '批次公司',
-        location: '深圳',
-        description: '面向 2028 届，使用 Python 完成数据处理与机器学习建模实习。'
-      },
-      {
-        title: 'AI Agent 实习生',
-        company: '批次外地公司',
-        location: '北京',
-        description: '面向 2028 届，使用 Python 和大模型 API 开发 Agent，不支持远程。'
-      }
-    ]
-  };
-
-  const first = await json(await fetch(`${app.url}/api/batches/import`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(batch)
-  }));
-  assert.equal(first.response.status, 200);
-  assert.equal(first.body.summary.batchId, 'batch-test-1');
-  assert.equal(first.body.summary.queued + first.body.summary.review, 1);
-  assert.equal(first.body.summary.excluded, 1);
-  assert.equal((await app.store.read()).jobs.length, 1);
-
-  const second = await fetch(`${app.url}/api/batches/import`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(batch)
-  }).then((response) => response.json());
-  assert.equal(second.summary.duplicates, 2);
-  assert.equal((await app.store.read()).jobs.length, 1);
-
-  const runner = await json(await fetch(`${app.url}/api/updates/run`, {
-    method: 'POST',
-    headers,
-    body: '{}'
-  }));
-  assert.equal(runner.response.status, 501);
-  assert.equal(runner.body.error.code, 'UPDATE_RUNNER_NOT_IMPLEMENTED');
 });
 
 test('static serving uses an explicit public asset allowlist', async (t) => {

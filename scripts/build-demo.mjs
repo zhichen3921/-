@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,11 +8,15 @@ const outputRoot = join(projectRoot, '_site');
 await rm(outputRoot, { recursive: true, force: true });
 await mkdir(join(outputRoot, 'client'), { recursive: true });
 
-for (const file of ['index.html', 'styles.css', 'app.js', 'curated-jobs.js']) {
+for (const file of ['styles.css', 'app.js', 'curated-jobs.js']) {
   await cp(join(projectRoot, file), join(outputRoot, file));
 }
 
-for (const file of ['filters.js', 'preferences.js', 'profile.js', 'update-center.js']) {
+const publicIndex = (await readFile(join(projectRoot, 'index.html'), 'utf8'))
+  .replace(/\s*<script src="client\/profile\.local\.js" onerror="this\.remove\(\)"><\/script>/, '');
+await writeFile(join(outputRoot, 'index.html'), publicIndex);
+
+for (const file of ['filters.js', 'preferences.js', 'profile.js', 'extension-center.js']) {
   await cp(join(projectRoot, 'client', file), join(outputRoot, 'client', file));
 }
 

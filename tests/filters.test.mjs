@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 await import('../client/filters.js');
-await import('../client/update-center.js');
 const { createApiClient } = await import('../client/api.js');
 
 const {
@@ -11,11 +10,6 @@ const {
   filterJobs,
   hasActiveFilters
 } = globalThis.ApplicationDeskFilters;
-
-const {
-  normalizeUpdates,
-  statusForLog
-} = globalThis.ApplicationDeskUpdateCenter;
 
 function fixtureJobs() {
   return [
@@ -240,26 +234,6 @@ test('clear-filter state is fresh and reports no active filters', () => {
   assert.deepEqual(second.routes, []);
   assert.equal(hasActiveFilters(second), false);
   assert.equal(hasActiveFilters({ ...second, accepts2028: true }), true);
-});
-
-test('update model preserves truthful schedule, discovery, failures and extension state', () => {
-  const updates = normalizeUpdates({
-    status: 'running',
-    nextRunAt: '2026-08-02T01:00:00.000Z',
-    todayDiscovered: 17,
-    failedSources: ['某公司招聘页'],
-    extension: {
-      paired: true,
-      lastHeartbeatAt: '2026-08-01T03:00:00.000Z'
-    },
-    logs: [{ source: '未知来源', message: '等待确认' }]
-  });
-
-  assert.equal(updates.nextRunAt, '2026-08-02T01:00:00.000Z');
-  assert.equal(updates.todayDiscovered, 17);
-  assert.deepEqual(updates.failedSources, ['某公司招聘页']);
-  assert.equal(updates.extension.status, 'connected');
-  assert.equal(statusForLog(updates.logs[0]), 'unknown');
 });
 
 test('API client uses granular job writes and user-triggered extension pairing', async () => {

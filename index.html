@@ -18,7 +18,7 @@
         <button id="nav-radar" class="nav-item active" role="tab" aria-controls="radar-section" aria-selected="true" aria-current="page" data-section="radar"><span>01</span>岗位雷达</button>
         <button id="nav-queue" class="nav-item" role="tab" aria-controls="queue-section" aria-selected="false" tabindex="-1" data-section="queue"><span>02</span>投递队列 <b id="nav-count">0</b></button>
         <button id="nav-review" class="nav-item" role="tab" aria-controls="review-section" aria-selected="false" tabindex="-1" data-section="review"><span>03</span>待复核 <b id="review-nav-count">0</b></button>
-        <button id="nav-updates" class="nav-item" role="tab" aria-controls="updates-section" aria-selected="false" tabindex="-1" data-section="updates"><span>04</span>更新中心</button>
+        <button id="nav-extension" class="nav-item" role="tab" aria-controls="extension-section" aria-selected="false" tabindex="-1" data-section="extension"><span>04</span>浏览器扩展</button>
         <button id="nav-preferences" class="nav-item" role="tab" aria-controls="preferences-section" aria-selected="false" tabindex="-1" data-section="preferences"><span>05</span>求职偏好</button>
         <button id="nav-profile" class="nav-item" role="tab" aria-controls="profile-section" aria-selected="false" tabindex="-1" data-section="profile"><span>06</span>简历画像</button>
       </nav>
@@ -108,8 +108,8 @@
         <div class="job-list" id="review-job-list"></div>
       </section>
 
-      <section id="updates-section" class="section" role="tabpanel" aria-labelledby="nav-updates" aria-hidden="true">
-        <div id="update-center-root"></div>
+      <section id="extension-section" class="section" role="tabpanel" aria-labelledby="nav-extension" aria-hidden="true">
+        <div id="extension-center-root"></div>
       </section>
 
       <section id="preferences-section" class="section" role="tabpanel" aria-labelledby="nav-preferences" aria-hidden="true">
@@ -170,9 +170,7 @@
   <script src="client/preferences.js"></script>
   <script src="client/profile.js"></script>
   <script src="client/profile.local.js" onerror="this.remove()"></script>
-  <script src="client/update-center.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+  <script src="client/extension-center.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

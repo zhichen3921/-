@@ -120,30 +120,6 @@ try {
   await page.locator('[data-section="preferences"]').click();
   assert.equal(await page.locator('[name="queueThreshold"]').inputValue(), '78');
 
-  const updateBatch = JSON.parse(await readFile(
-    join(projectRoot, 'data', 'update-batches', '2026-07-31-shenzhen-ai-v1.json'),
-    'utf8'
-  ));
-  const reimportResponse = await fetch(`${baseUrl}/api/batches/import`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-desk-token': bootstrap.token
-    },
-    body: JSON.stringify({
-      ...updateBatch,
-      id: 'e2e-curated-reimport-v2'
-    })
-  });
-  assert.equal(reimportResponse.status, 200);
-
-  const afterBatch = await fetch(`${baseUrl}/api/state`).then((response) => response.json());
-  assert.equal(afterBatch.state.jobs.length, 8);
-  const preservedJob = afterBatch.state.jobs.find((job) => job.url === legacy.jobs[0].url);
-  assert.equal(preservedJob.status, 'contacted');
-  assert.equal(preservedJob.greeting, '这是端到端测试保留的人工话术');
-  assert.equal(preservedJob.greetingEdited, true);
-
   await migrateThroughFileBridge();
   const repeatedState = await fetch(`${baseUrl}/api/state`).then((response) => response.json());
   assert.equal(repeatedState.state.jobs.length, 8);

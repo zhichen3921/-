@@ -174,14 +174,6 @@ export function createApiClient({
       });
     },
 
-    runPublicUpdate() {
-      return request('/api/updates/run', {
-        method: 'POST',
-        body: { trigger: 'manual' },
-        write: true
-      });
-    },
-
     pairExtension() {
       return request('/api/extension/pair', {
         method: 'POST',

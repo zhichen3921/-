@@ -7,9 +7,6 @@ coverage/
 # Local application data
 data/*
 !data/.gitkeep
-!data/update-batches/
-data/update-batches/*
-!data/update-batches/2026-07-31-shenzhen-ai-v1.json
 logs/
 *.log
 
@@ -27,7 +24,6 @@ client/profile.local.js
 .codex/
 .git-open-source/
 docs/superpowers/
-updates/update-prompt.md
 notes.md
 task_plan.md
 启动BOSS专用浏览器.cmd
