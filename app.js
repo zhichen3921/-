@@ -63,8 +63,8 @@ const {
   renderPreferences
 } = window.ApplicationDeskPreferences;
 const {
-  renderUpdateCenter
-} = window.ApplicationDeskUpdateCenter;
+  renderExtensionCenter
+} = window.ApplicationDeskExtensionCenter;
 
 const searches = [
   ['AI 实习生', 'AI实习生', '综合入口'],
@@ -96,8 +96,7 @@ function loadState() {
       jobs: [],
       curatedBatches: [],
       deletedKeys: [],
-      preferences: normalizePreferences(DEFAULT_PREFERENCES),
-      updates: {}
+      preferences: normalizePreferences(DEFAULT_PREFERENCES)
     };
   }
   try {
@@ -106,7 +105,6 @@ function loadState() {
       parsed.curatedBatches = Array.isArray(parsed.curatedBatches) ? parsed.curatedBatches : [];
       parsed.deletedKeys = Array.isArray(parsed.deletedKeys) ? parsed.deletedKeys : [];
       parsed.preferences = normalizePreferences(parsed.preferences || DEFAULT_PREFERENCES);
-      parsed.updates = parsed.updates && typeof parsed.updates === 'object' ? parsed.updates : {};
       return parsed;
     }
   } catch (_) {}
@@ -114,8 +112,7 @@ function loadState() {
     jobs: [],
     curatedBatches: [],
     deletedKeys: [],
-    preferences: normalizePreferences(DEFAULT_PREFERENCES),
-    updates: {}
+    preferences: normalizePreferences(DEFAULT_PREFERENCES)
   };
 }
 
@@ -158,10 +155,7 @@ function normalizeServerState(input) {
       ? serverState.curatedBatches
       : Array.isArray(serverState.importedBatchIds) ? serverState.importedBatchIds : [],
     deletedKeys: Array.isArray(serverState.deletedKeys) ? serverState.deletedKeys : [],
-    preferences: normalizePreferences(serverState.preferences || DEFAULT_PREFERENCES),
-    updates: serverState.updates && typeof serverState.updates === 'object'
-      ? serverState.updates
-      : {}
+    preferences: normalizePreferences(serverState.preferences || DEFAULT_PREFERENCES)
   };
 }
 
@@ -403,6 +397,29 @@ function profileFromResumeText(text) {
   });
 }
 
+function loadExternalScript(src, globalName) {
+  if (window[globalName]) return Promise.resolve(window[globalName]);
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    const timeout = window.setTimeout(() => {
+      script.remove();
+      reject(new Error('解析组件加载超时，请检查网络后重试'));
+    }, 12000);
+    script.src = src;
+    script.onload = () => {
+      window.clearTimeout(timeout);
+      if (window[globalName]) resolve(window[globalName]);
+      else reject(new Error('解析组件加载失败，请刷新页面后重试'));
+    };
+    script.onerror = () => {
+      window.clearTimeout(timeout);
+      script.remove();
+      reject(new Error('解析组件加载失败，请检查网络后重试'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
 async function parseResumeFile(file) {
   const extension = String(file.name || '').split('.').pop().toLowerCase();
   if (['txt', 'md'].includes(extension) || file.type.startsWith('text/')) {
@@ -413,7 +430,10 @@ async function parseResumeFile(file) {
     return { profile: parsed.profile || parsed.resume || parsed };
   }
   if (extension === 'pdf' || file.type === 'application/pdf') {
-    if (!window.pdfjsLib) throw new Error('PDF 解析组件加载失败，请刷新页面后重试');
+    await loadExternalScript(
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+      'pdfjsLib'
+    );
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     const document = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
     const pages = [];
@@ -425,7 +445,10 @@ async function parseResumeFile(file) {
     return { text: pages.join('\n') };
   }
   if (extension === 'docx') {
-    if (!window.mammoth) throw new Error('DOCX 解析组件加载失败，请刷新页面后重试');
+    await loadExternalScript(
+      'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js',
+      'mammoth'
+    );
     const result = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
     return { text: result.value };
   }
@@ -655,11 +678,9 @@ function renderFilterPanels() {
 
 function renderSupplementaryViews() {
   renderPreferences($('#preferences-root'), state.preferences, { serverMode: !IS_FILE_MODE });
-  renderUpdateCenter($('#update-center-root'), {
-    updates: state.updates,
-    jobs: state.jobs,
+  renderExtensionCenter($('#extension-center-root'), {
     serverMode: !IS_FILE_MODE,
-    extension: state.extension || state.updates?.extension,
+    extension: state.extension,
     pairingToken: extensionPairingToken
   });
 }
@@ -690,7 +711,7 @@ function switchSection(section) {
     radar: '岗位雷达',
     queue: '投递队列',
     review: '待复核',
-    updates: '更新中心',
+    extension: '浏览器扩展',
     preferences: '求职偏好',
     profile: '简历画像'
   }[section];
@@ -904,26 +925,6 @@ async function handlePreferencesSave(preferences) {
   }
 }
 
-async function handleManualUpdate() {
-  if (IS_FILE_MODE) {
-    toast('立即更新需要从本地服务版投递台打开');
-    return;
-  }
-  try {
-    await apiClient.runPublicUpdate();
-    state = normalizeServerState(await apiClient.getState());
-    renderAll();
-    toast('公开岗位更新已完成');
-  } catch (error) {
-    console.error('Public update failed:', error);
-    if (error.code === 'UPDATE_RUNNER_NOT_IMPLEMENTED') {
-      toast('更新中心已就绪；每日公开搜索执行器将在下一模块接入');
-      return;
-    }
-    toast(`更新失败：${error.message}`);
-  }
-}
-
 $('#job-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const id = $('#job-id').value;
@@ -989,9 +990,6 @@ document.addEventListener('filters:clear', (event) => {
 });
 document.addEventListener('preferences:save', (event) => {
   void handlePreferencesSave(event.detail?.preferences || DEFAULT_PREFERENCES);
-});
-document.addEventListener('updates:run', () => {
-  void handleManualUpdate();
 });
 document.addEventListener('extension:pair', () => {
   if (IS_FILE_MODE) {

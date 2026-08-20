@@ -1,12 +1,9 @@
-import { access, readFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { extname } from 'node:path';
 
 import { jobIdentityKeys, mergeJob } from '../shared/deduplicate.mjs';
 import { JOB_STATUSES, normalizeJob } from '../shared/job-schema.mjs';
 import { scoreJob } from '../shared/matcher.mjs';
-import {
-  createPublicUpdateManager
-} from '../updates/run-status.mjs';
 import {
   extensionCorsHeaders,
   HttpError,
@@ -330,81 +327,6 @@ async function deleteJob(store, id) {
   return removed;
 }
 
-function emptyBatchSummary(batchId) {
-  return {
-    batchId,
-    queued: 0,
-    review: 0,
-    excluded: 0,
-    duplicates: 0,
-    invalid: 0
-  };
-}
-
-async function importBatchPlaceholder(store, input) {
-  const batch = requireObject(input, 'Batch');
-  const batchId = String(batch.id || batch.batchId || '').trim();
-  if (!batchId || !Array.isArray(batch.jobs)) {
-    throw new HttpError(
-      400,
-      'INVALID_BATCH',
-      'Batch requires a non-empty id and a jobs array'
-    );
-  }
-
-  let summary = emptyBatchSummary(batchId);
-  await store.update((state) => {
-    if (state.importedBatchIds.includes(batchId)) {
-      summary.duplicates = batch.jobs.length;
-      return;
-    }
-
-    for (const inputJob of batch.jobs) {
-      let candidate;
-      try {
-        const normalizedInput = {
-          ...inputJob,
-          curatedBatchId: inputJob?.curatedBatchId || batchId
-        };
-        assertValidStatus(normalizedInput);
-        const normalized = normalizeJob(normalizedInput);
-        candidate = withMatch(normalized, state.preferences);
-      } catch {
-        summary.invalid += 1;
-        continue;
-      }
-
-      if (candidate.route === 'excluded') {
-        summary.excluded += 1;
-        continue;
-      }
-
-      const keys = jobIdentityKeys(candidate);
-      if (
-        state.deletedKeys.includes(`id:${candidate.id}`) ||
-        keys.some((key) => state.deletedKeys.includes(key))
-      ) {
-        summary.duplicates += 1;
-        continue;
-      }
-
-      const existing = findDuplicate(state.jobs, candidate);
-      if (existing) {
-        const index = state.jobs.findIndex((job) => job.id === existing.id);
-        state.jobs[index] = withMatch(mergeJob(existing, candidate), state.preferences);
-        summary.duplicates += 1;
-        continue;
-      }
-
-      state.jobs.push(candidate);
-      const summaryField = candidate.route === 'queue' ? 'queued' : candidate.route;
-      summary[summaryField] += 1;
-    }
-    state.importedBatchIds.push(batchId);
-  });
-  return summary;
-}
-
 function migrationBatchIds(curatedBatches) {
   if (!Array.isArray(curatedBatches)) {
     throw new TypeError('curatedBatches must be an array');
@@ -597,8 +519,7 @@ export function createRouter({
   runtimeToken,
   extensionToken,
   expectedAuthority,
-  staticRoot,
-  publicUpdateManager = null
+  staticRoot
 }) {
   if (!store || typeof store.read !== 'function' || typeof store.update !== 'function') {
     throw new TypeError('createRouter requires a store');
@@ -615,19 +536,6 @@ export function createRouter({
   if (typeof staticRoot !== 'string' || !staticRoot) {
     throw new TypeError('createRouter requires a staticRoot');
   }
-  if (
-    publicUpdateManager !== null
-    && typeof publicUpdateManager?.start !== 'function'
-  ) {
-    throw new TypeError('publicUpdateManager must provide start()');
-  }
-
-  const updateManager = publicUpdateManager || createPublicUpdateManager({
-    projectRoot: staticRoot,
-    store
-  });
-  const defaultRunnerScript = join(staticRoot, 'updates', 'run-public-update.ps1');
-
   return async function route(request, response) {
     let corsHeaders = {};
     try {
@@ -794,39 +702,6 @@ export function createRouter({
           return;
         }
         throw methodNotAllowed(['GET', 'PATCH', 'PUT', 'DELETE']);
-      }
-
-      if (pathname === '/api/batches/import') {
-        if (request.method !== 'POST') throw methodNotAllowed(['POST']);
-        const summary = await importBatchPlaceholder(store, await readJsonBody(request));
-        sendJson(response, 200, { summary });
-        return;
-      }
-
-      if (pathname === '/api/updates/status') {
-        if (request.method !== 'GET') throw methodNotAllowed(['GET']);
-        const state = await store.read();
-        sendJson(response, 200, { updates: state.updates });
-        return;
-      }
-
-      if (pathname === '/api/updates/run') {
-        if (request.method !== 'POST') throw methodNotAllowed(['POST']);
-        requireObject(await readJsonBody(request));
-        if (!publicUpdateManager) {
-          try {
-            await access(defaultRunnerScript);
-          } catch {
-            throw new HttpError(
-              501,
-              'UPDATE_RUNNER_NOT_IMPLEMENTED',
-              'The public job update runner is not installed in this project'
-            );
-          }
-        }
-        const run = await updateManager.start();
-        sendJson(response, 202, { run });
-        return;
       }
 
       throw new HttpError(404, 'NOT_FOUND', 'API route was not found');

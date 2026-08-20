@@ -11,6 +11,7 @@ page.on('pageerror', (error) => errors.push(error.message));
 await page.goto(pathToFileURL(resolve('index.html')).href, { waitUntil: 'domcontentloaded' });
 assert.equal(await page.locator('.search-card').count(), 5);
 assert.equal(await page.locator('#radar-section.active-section').count(), 1);
+assert.equal(await page.locator('[data-section="updates"]').count(), 0);
 await page.locator('[data-section="queue"]').click();
 assert.equal(await page.locator('[data-section="queue"]').getAttribute('aria-current'), 'page');
 assert.equal(await page.locator('#queue-section[role="tabpanel"].active-section').count(), 1);
@@ -43,29 +44,9 @@ await page.locator('[name="queueThreshold"]').fill('78');
 await page.locator('.preferences-form').evaluate((form) => form.requestSubmit());
 assert.match(await page.locator('#toast').innerText(), /偏好已保存在浏览器/);
 
-const updateTruth = await page.evaluate(() => {
-  const root = document.createElement('div');
-  document.body.append(root);
-  window.ApplicationDeskUpdateCenter.renderUpdateCenter(root, {
-    updates: {
-      nextRunAt: '2026-08-02T01:00:00.000Z',
-      todayDiscovered: 9,
-      failedSources: ['失效来源'],
-      logs: [{ source: '待确认来源', message: '状态未知' }]
-    },
-    serverMode: true
-  });
-  return {
-    text: root.innerText,
-    unknownRows: root.querySelectorAll('.update-log-row .unknown').length,
-    pairingTokenVisible: Boolean(root.querySelector('[data-extension-token]')?.textContent.trim())
-  };
-});
-assert.match(updateTruth.text, /下次运行/);
-assert.match(updateTruth.text, /今日发现\s*9/);
-assert.match(updateTruth.text, /失效来源/);
-assert.equal(updateTruth.unknownRows, 1);
-assert.equal(updateTruth.pairingTokenVisible, false);
+await page.locator('[data-section="extension"]').click();
+assert.equal(await page.locator('#extension-section.active-section').count(), 1);
+assert.match(await page.locator('#extension-center-root').innerText(), /浏览器扩展/);
 
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.locator('[data-section="queue"]').click();
