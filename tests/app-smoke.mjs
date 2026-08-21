@@ -35,7 +35,11 @@ assert.equal(await page.locator('#queue-section.active-section .job-card').count
 const testJob = page.locator('#queue-section.active-section .job-card', { hasText: '测试科技' });
 assert.match(await testJob.innerText(), /优先沟通/);
 await testJob.locator('[data-greet]').click();
-assert.match(await page.locator('#greeting-text').inputValue(), /您好，我是/);
+const firstGreeting = await page.locator('#greeting-text').inputValue();
+assert.match(firstGreeting, /测试科技/);
+assert.doesNotMatch(firstGreeting, /岗位方向与我的背景较匹配/);
+await page.locator('#regenerate-greeting-btn').click();
+assert.notEqual(await page.locator('#greeting-text').inputValue(), firstGreeting);
 await page.locator('#greeting-modal [data-close]').click();
 assert.equal(errors.length, 0, errors.join('\n'));
 
