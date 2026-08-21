@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server/server.mjs",
     "build:demo": "node scripts/build-demo.mjs",
-    "test:unit": "node --test tests/store.test.mjs tests/matcher.test.mjs tests/deduplicate.test.mjs tests/server-api.test.mjs tests/migration.test.mjs tests/filters.test.mjs",
+    "test:unit": "node --test tests/store.test.mjs tests/matcher.test.mjs tests/deduplicate.test.mjs tests/server-api.test.mjs tests/migration.test.mjs tests/filters.test.mjs tests/greetings.test.mjs",
     "test:extension": "node --test tests/boss-extractor.test.mjs tests/extension-manifest.test.mjs tests/extension-popup-state.test.mjs",
     "test:e2e": "node tests/local-core-e2e.mjs",
     "test:all": "npm run test:unit && npm run test:extension && npm run test:app && npm run test:e2e && npm run test:demo",

@@ -65,6 +65,10 @@ const {
 const {
   renderExtensionCenter
 } = window.ApplicationDeskExtensionCenter;
+const {
+  buildGreeting,
+  isLegacyGreeting
+} = window.ApplicationDeskGreetings;
 
 const searches = [
   ['AI 实习生', 'AI实习生', '综合入口'],
@@ -81,6 +85,7 @@ let compoundFilters = createEmptyFilters();
 let reviewCompoundFilters = createEmptyFilters();
 let currentSection = 'radar';
 let activeGreetingId = null;
+let activeGreetingVariant = 0;
 let apiClient = null;
 let stateWriteQueue = Promise.resolve();
 let extensionPairingToken = '';
@@ -150,7 +155,15 @@ function normalizeServerState(input) {
   const serverState = input && typeof input === 'object' ? input : {};
   return {
     ...serverState,
-    jobs: Array.isArray(serverState.jobs) ? serverState.jobs : [],
+    jobs: Array.isArray(serverState.jobs)
+      ? serverState.jobs.map((job) => {
+        if (!job || typeof job !== 'object') return job;
+        if (!String(job.greeting || '').trim() || isLegacyGreeting(job.greeting)) {
+          return { ...job, greeting: makeGreeting(job) };
+        }
+        return job;
+      })
+      : [],
     curatedBatches: Array.isArray(serverState.curatedBatches)
       ? serverState.curatedBatches
       : Array.isArray(serverState.importedBatchIds) ? serverState.importedBatchIds : [],
@@ -336,15 +349,8 @@ function analyzeJob(job) {
   return { score, verdict, reasons: [...new Set(reasons)].slice(0, 4), matchedSkills: matchedSkills.map((skill) => skill.label) };
 }
 
-function makeGreeting(job) {
-  const matchedSkills = Array.isArray(job.matchedSkills)
-    ? job.matchedSkills
-    : Array.isArray(job.match?.matchedSkills) ? job.match.matchedSkills : [];
-  const skills = matchedSkills.length ? matchedSkills.slice(0, 4) : ['Python', '机器学习', '大模型 API'];
-  const companyPart = job.company ? `贵司的${job.title}` : `该${job.title}岗位`;
-  const identity = [resume.school, resume.degree, resume.name].filter(Boolean).join(' ');
-  const evidence = resume.evidenceSummary || '有相关项目实践';
-  return `您好，我是${identity || '一名求职者'}，关注到${companyPart}。${evidence}，熟悉${skills.join('、')}。岗位方向与我的背景较匹配，希望进一步交流，谢谢！`;
+function makeGreeting(job, variantOffset = 0) {
+  return buildGreeting(job, resume, { variantOffset });
 }
 
 function renderProfile() {
@@ -553,7 +559,9 @@ function normalizeJob(input, existing = {}) {
   job.route = ['queue', 'review', 'excluded'].includes(input.route)
     ? input.route
     : analysis.verdict === 'good' ? 'queue' : analysis.verdict === 'unknown' ? 'review' : 'excluded';
-  job.greeting = existing.greeting || makeGreeting(job);
+  job.greeting = !String(existing.greeting || '').trim() || isLegacyGreeting(existing.greeting)
+    ? makeGreeting(job)
+    : existing.greeting;
   return job;
 }
 
@@ -746,6 +754,7 @@ function openGreeting(id) {
   const job = state.jobs.find((item) => item.id === id);
   if (!job) return;
   activeGreetingId = id;
+  activeGreetingVariant = 0;
   if (!job.viewedAt) {
     job.viewedAt = new Date().toISOString();
     job.updatedAt = job.viewedAt;
@@ -761,8 +770,11 @@ function openGreeting(id) {
       });
     }
   }
+  if (!String(job.greeting || '').trim() || isLegacyGreeting(job.greeting)) {
+    job.greeting = makeGreeting(job);
+  }
   $('#greeting-title').textContent = `${job.company} · ${job.title}`;
-  $('#greeting-text').value = job.greeting || makeGreeting(job);
+  $('#greeting-text').value = job.greeting;
   const sourceLine = job.source ? `<br><span>来源：${escapeHtml(job.source)} · 发布 ${escapeHtml(job.publishedAt || '日期未标注')} · 核验 ${escapeHtml(job.verifiedAt || '日期未标注')}</span>` : '';
   const noteLine = job.curationNote ? `<br><span>${escapeHtml(job.curationNote)}</span>` : '';
   const route = routeForJob(job);
@@ -1010,6 +1022,13 @@ document.addEventListener('extension:copy', async (event) => {
   const token = String(event.detail?.token || '');
   if (!token) return;
   toast(await copyText(token) ? '扩展配对令牌已复制' : '复制失败，请手动选择令牌');
+});
+$('#regenerate-greeting-btn').addEventListener('click', () => {
+  const job = state.jobs.find((item) => item.id === activeGreetingId); if (!job) return;
+  activeGreetingVariant += 1;
+  job.greeting = makeGreeting(job, activeGreetingVariant);
+  $('#greeting-text').value = job.greeting;
+  toast('已换一版话术，请检查后复制');
 });
 $('#copy-greeting-btn').addEventListener('click', async () => {
   const job = state.jobs.find((item) => item.id === activeGreetingId); if (!job) return;

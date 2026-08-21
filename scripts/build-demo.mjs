@@ -16,7 +16,7 @@ const publicIndex = (await readFile(join(projectRoot, 'index.html'), 'utf8'))
   .replace(/\s*<script src="client\/profile\.local\.js" onerror="this\.remove\(\)"><\/script>/, '');
 await writeFile(join(outputRoot, 'index.html'), publicIndex);
 
-for (const file of ['filters.js', 'preferences.js', 'profile.js', 'extension-center.js']) {
+for (const file of ['filters.js', 'preferences.js', 'profile.js', 'greetings.js', 'extension-center.js']) {
   await cp(join(projectRoot, 'client', file), join(outputRoot, 'client', file));
 }
 
