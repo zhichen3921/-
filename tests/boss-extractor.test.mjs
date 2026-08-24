@@ -6,6 +6,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 
 const extractorPath = resolve('extension/extract-current-job.js');
+const pageExtractorPath = resolve('extension/extract-current-page-jobs.js');
 const fixturePath = resolve('tests/fixtures/boss-job-detail.html');
 const splitLayoutFixturePath = resolve('tests/fixtures/boss-job-detail-split-layout.html');
 const expandedSearchFixturePath = resolve('tests/fixtures/boss-search-expanded.html');
@@ -162,6 +163,49 @@ test('uses the active expanded detail link instead of the search page URL', asyn
 
   assert.equal(result.title, 'AI 工作流实习生');
   assert.equal(result.url, 'https://www.zhipin.com/job_detail/active-workflow.html');
+});
+
+test('extracts only visible job cards from the current search page for batch collection', async () => {
+  const html = await readFile(expandedSearchFixturePath, 'utf8');
+  const result = await withPage(html, async (page) => {
+    await page.addScriptTag({ path: pageExtractorPath });
+    return page.evaluate(() => globalThis.BossJobCollectorExtractPage(document, {
+      hostname: 'www.zhipin.com',
+      href: 'https://www.zhipin.com/web/geek/job?query=AI&city=101280600',
+      pathname: '/web/geek/job'
+    }));
+  });
+
+  assert.equal(result.totalVisible, 2);
+  assert.equal(result.truncated, false);
+  assert.deepEqual(result.jobs.map((job) => job.title), [
+    '算法实习生',
+    'AI 工作流实习生'
+  ]);
+  assert.deepEqual(result.jobs.map((job) => job.url), [
+    'https://www.zhipin.com/job_detail/inactive-algorithm.html',
+    'https://www.zhipin.com/job_detail/active-workflow.html'
+  ]);
+});
+
+test('batch extractor refuses a detail page and does not silently collect one job', async () => {
+  const error = await withPage('<main><a href="/job_detail/only.html">唯一岗位</a></main>', async (page) => {
+    await page.addScriptTag({ path: pageExtractorPath });
+    return page.evaluate(() => {
+      try {
+        globalThis.BossJobCollectorExtractPage(document, {
+          hostname: 'www.zhipin.com',
+          href: 'https://www.zhipin.com/job_detail/only.html',
+          pathname: '/job_detail/only.html'
+        });
+        return null;
+      } catch (caught) {
+        return { code: caught.code, message: caught.message };
+      }
+    });
+  });
+
+  assert.equal(error?.code, 'DETAIL_PAGE_NOT_BATCH');
 });
 
 test('refuses an expanded detail when it has no unique job detail URL', async () => {

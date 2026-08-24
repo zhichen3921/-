@@ -18,7 +18,13 @@ import {
 } from './security.mjs';
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-const EXTENSION_INTAKE_PATHS = new Set(['/api/jobs', '/api/jobs/preview']);
+const EXTENSION_INTAKE_PATHS = new Set([
+  '/api/jobs',
+  '/api/jobs/preview',
+  '/api/jobs/batch-preview',
+  '/api/jobs/batch'
+]);
+const BATCH_MAX_ITEMS = 20;
 const LEGACY_MIGRATION_PATH = '/api/migrations/legacy';
 const MANUAL_JOB_FIELDS = Object.freeze([
   'title',
@@ -224,6 +230,92 @@ async function previewJob(store, input) {
     normalizedJob,
     match,
     duplicate: duplicateSummary(duplicate)
+  };
+}
+
+function requireBatchJobs(input) {
+  const body = requireObject(input, 'Batch request');
+  if (!Array.isArray(body.jobs) || body.jobs.length === 0) {
+    throw new HttpError(400, 'INVALID_BATCH', 'Batch jobs must be a non-empty array');
+  }
+  if (body.jobs.length > BATCH_MAX_ITEMS) {
+    throw new HttpError(
+      400,
+      'BATCH_TOO_LARGE',
+      `A batch may contain at most ${BATCH_MAX_ITEMS} jobs`
+    );
+  }
+  if (body.jobs.some((job) => !job || typeof job !== 'object' || Array.isArray(job))) {
+    throw new HttpError(400, 'INVALID_BATCH', 'Each batch job must be a JSON object');
+  }
+  return body;
+}
+
+function batchError(error) {
+  return {
+    code: typeof error?.code === 'string' ? error.code : 'INVALID_JOB',
+    message: String(error?.message || '岗位数据无效')
+  };
+}
+
+async function previewJobs(store, input) {
+  const { jobs } = requireBatchJobs(input);
+  const state = await store.read();
+  const items = jobs.map((rawJob, index) => {
+    try {
+      const { forceSave: _forceSave, ...jobInput } = rawJob;
+      const { normalizedJob, match } = normalizeAndScore(jobInput, state.preferences);
+      return {
+        index,
+        normalizedJob,
+        match,
+        duplicate: duplicateSummary(findDuplicate(state.jobs, normalizedJob))
+      };
+    } catch (error) {
+      return { index, error: batchError(error) };
+    }
+  });
+  return { items };
+}
+
+async function saveJobs(store, input) {
+  const body = requireBatchJobs(input);
+  const forceSaveExcluded = body.forceSaveExcluded === true;
+  const results = [];
+
+  await store.update((state) => {
+    for (const rawJob of body.jobs) {
+      const { forceSave: _forceSave, ...jobInput } = rawJob;
+      const { normalizedJob } = normalizeAndScore(jobInput, state.preferences);
+      const candidate = withMatch(normalizedJob, state.preferences);
+      const existing = findDuplicate(state.jobs, candidate);
+
+      if (candidate.route === 'excluded' && !forceSaveExcluded && !existing) {
+        throw new HttpError(
+          422,
+          'JOB_EXCLUDED_REQUIRES_FORCE',
+          'Excluded jobs require forceSaveExcluded: true'
+        );
+      }
+
+      const duplicate = duplicateSummary(existing);
+      let savedJob;
+      if (existing) {
+        const index = state.jobs.findIndex((job) => job.id === existing.id);
+        savedJob = withMatch(mergeJob(existing, candidate), state.preferences);
+        state.jobs[index] = savedJob;
+      } else {
+        savedJob = candidate;
+        state.jobs.push(savedJob);
+      }
+      results.push({ job: savedJob, duplicate });
+    }
+  });
+
+  return {
+    results,
+    created: results.filter((result) => !result.duplicate).length,
+    updated: results.filter((result) => Boolean(result.duplicate)).length
   };
 }
 
@@ -658,6 +750,20 @@ export function createRouter({
       if (pathname === '/api/jobs/preview') {
         if (request.method !== 'POST') throw methodNotAllowed(['POST']);
         const result = await previewJob(store, await readJsonBody(request));
+        sendJson(response, 200, result, corsHeaders);
+        return;
+      }
+
+      if (pathname === '/api/jobs/batch-preview') {
+        if (request.method !== 'POST') throw methodNotAllowed(['POST']);
+        const result = await previewJobs(store, await readJsonBody(request));
+        sendJson(response, 200, result, corsHeaders);
+        return;
+      }
+
+      if (pathname === '/api/jobs/batch') {
+        if (request.method !== 'POST') throw methodNotAllowed(['POST']);
+        const result = await saveJobs(store, await readJsonBody(request));
         sendJson(response, 200, result, corsHeaders);
         return;
       }
