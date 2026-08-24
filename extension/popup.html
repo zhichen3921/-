@@ -35,11 +35,16 @@
       <section id="collector-panel" class="panel collector-panel" hidden>
         <div id="idle-view" class="idle-view">
           <div class="leaf-orbit" aria-hidden="true"><i></i><b>1</b></div>
-          <h2>只读取当前岗位</h2>
-          <p>不会翻页、扫描列表、发送消息或改变当前网页。</p>
-          <button id="collect-button" class="button harvest" type="button">
-            <span>采集当前岗位</span><b aria-hidden="true">↗</b>
-          </button>
+          <h2>按你筛选的结果采集</h2>
+          <p>只读取当前页面可见内容，不翻页、不后台扫描、不发送消息。</p>
+          <div class="collector-actions">
+            <button id="collect-button" class="button harvest" type="button">
+              <span>采集当前岗位</span><b aria-hidden="true">↗</b>
+            </button>
+            <button id="collect-page-button" class="button page-harvest" type="button">
+              <span>批量采集当前页</span><b aria-hidden="true">20</b>
+            </button>
+          </div>
         </div>
 
         <div id="loading-view" class="loading-view" hidden>
@@ -47,6 +52,30 @@
           <strong>正在辨认当前页面…</strong>
           <span>仅读取你此刻看到的岗位详情</span>
         </div>
+
+        <section id="batch-view" class="batch-view" hidden>
+          <div class="batch-heading">
+            <div>
+              <span class="batch-kicker">VISIBLE JOBS</span>
+              <h2>确认这批岗位</h2>
+            </div>
+            <strong id="batch-count">0/20</strong>
+          </div>
+          <p class="batch-note">已读取当前页面显示的岗位卡片。先勾选要加入投递台的岗位，再一次确认保存。</p>
+          <div class="batch-toolbar">
+            <label><input id="batch-select-all" type="checkbox"> 全选推荐岗位</label>
+            <span id="batch-summary">等待评估</span>
+          </div>
+          <div id="batch-list" class="batch-list"></div>
+          <label id="batch-force-save-wrap" class="force-save" hidden>
+            <input id="batch-force-save" type="checkbox">
+            <span><b>允许保存低匹配岗位</b> — 我已复核选中的岗位。</span>
+          </label>
+          <div class="form-actions batch-actions">
+            <button id="batch-back" class="button ghost" type="button">返回</button>
+            <button id="batch-save" class="button primary" type="button" disabled>保存所选岗位</button>
+          </div>
+        </section>
 
         <form id="job-form" class="job-form" hidden>
           <div id="result-banner" class="result-banner" data-route="review">

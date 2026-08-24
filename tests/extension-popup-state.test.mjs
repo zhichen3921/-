@@ -72,6 +72,54 @@ test('desk API sends only the paired extension token to preview and save endpoin
   }
 });
 
+test('desk API sends batch preview and save as one request each', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options, body: JSON.parse(options.body) });
+    if (url.endsWith('/batch-preview')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          items: [{
+            index: 0,
+            normalizedJob: { title: '批量 AI 实习生' },
+            match: { score: 88, route: 'queue', reasons: [] },
+            duplicate: null
+          }]
+        })
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        results: [{ job: { id: 'batch-job-1' }, duplicate: null }],
+        created: 1,
+        updated: 0
+      })
+    };
+  };
+  const api = createDeskApi({ fetchImpl, token: 'paired-token' });
+
+  await api.batchPreview([{ title: '批量 AI 实习生' }]);
+  await api.batchSave([{ title: '批量 AI 实习生' }], { forceSaveExcluded: true });
+
+  assert.deepEqual(calls.map((call) => call.url), [
+    'http://127.0.0.1:43127/api/jobs/batch-preview',
+    'http://127.0.0.1:43127/api/jobs/batch'
+  ]);
+  assert.deepEqual(calls[0].body, { jobs: [{ title: '批量 AI 实习生' }] });
+  assert.deepEqual(calls[1].body, {
+    jobs: [{ title: '批量 AI 实习生' }],
+    forceSaveExcluded: true
+  });
+  for (const { options } of calls) {
+    assert.equal(options.headers['x-desk-extension-token'], 'paired-token');
+    assert.equal(options.headers['x-desk-token'], undefined);
+  }
+});
+
 test('editable preview fields become the saved payload without invented values', () => {
   const payload = makeJobPayload({
     title: ' Agent 实习生 ',

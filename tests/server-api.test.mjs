@@ -383,6 +383,94 @@ test('extension preview and save require a paired token and use narrow CORS', as
   assert.equal(evilPreflight.headers.get('access-control-allow-origin'), null);
 });
 
+test('extension batch preview and save are atomic, bounded, and deduplicated', async (t) => {
+  const app = await startTestServer();
+  t.after(() => app.close());
+  const pairing = await json(await fetch(`${app.url}/api/extension/pair`, {
+    method: 'POST',
+    headers: {
+      origin: app.url,
+      'content-type': 'application/json',
+      'x-desk-token': app.token
+    },
+    body: '{}'
+  }));
+  const headers = {
+    origin: EXTENSION_ORIGIN,
+    'content-type': 'application/json',
+    'x-desk-extension-token': pairing.body.extensionToken
+  };
+  const jobs = [
+    {
+      title: '批量 Agent 实习生',
+      company: '批量测试公司',
+      location: '深圳',
+      url: 'https://example.com/jobs/batch-agent',
+      description: '面向 2028 届，使用 Python 和大模型 API 开发 Agent。'
+    },
+    {
+      title: '批量数据分析实习生',
+      company: '批量数据公司',
+      location: '深圳',
+      url: 'https://example.com/jobs/batch-data',
+      description: '面向 2028 届，使用 Python 进行数据分析。'
+    }
+  ];
+
+  const preflight = await fetch(`${app.url}/api/jobs/batch-preview`, {
+    method: 'OPTIONS',
+    headers: {
+      origin: EXTENSION_ORIGIN,
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'content-type, x-desk-extension-token'
+    }
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'), EXTENSION_ORIGIN);
+
+  const preview = await json(await fetch(`${app.url}/api/jobs/batch-preview`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ jobs })
+  }));
+  assert.equal(preview.response.status, 200);
+  assert.equal(preview.body.items.length, 2);
+  assert.equal(preview.body.items[0].normalizedJob.title, '批量 Agent 实习生');
+  assert.equal(preview.body.items[0].duplicate, null);
+  assert.equal((await app.store.read()).jobs.length, 0);
+
+  const saved = await json(await fetch(`${app.url}/api/jobs/batch`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ jobs, forceSaveExcluded: false })
+  }));
+  assert.equal(saved.response.status, 200);
+  assert.equal(saved.body.created, 2);
+  assert.equal(saved.body.updated, 0);
+  assert.equal(saved.body.results.length, 2);
+  assert.equal((await app.store.read()).jobs.length, 2);
+
+  const repeated = await json(await fetch(`${app.url}/api/jobs/batch`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ jobs, forceSaveExcluded: false })
+  }));
+  assert.equal(repeated.response.status, 200);
+  assert.equal(repeated.body.created, 0);
+  assert.equal(repeated.body.updated, 2);
+  assert.equal((await app.store.read()).jobs.length, 2);
+
+  const tooLarge = await json(await fetch(`${app.url}/api/jobs/batch-preview`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ jobs: Array.from({ length: 21 }, (_, index) => ({
+      title: `岗位 ${index + 1}`
+    })) })
+  }));
+  assert.equal(tooLarge.response.status, 400);
+  assert.equal(tooLarge.body.error.code, 'BATCH_TOO_LARGE');
+});
+
 test('legacy migration allows null origin only on its paired token-authenticated route', async (t) => {
   const app = await startTestServer();
   t.after(() => app.close());

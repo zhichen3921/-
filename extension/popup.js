@@ -10,6 +10,7 @@ const FIELD_LABELS = Object.freeze({
   description: '岗位描述'
 });
 const VALID_MATCH_ROUTES = new Set(['queue', 'review', 'excluded']);
+const BATCH_MAX_ITEMS = 20;
 
 export class DeskApiError extends Error {
   constructor(message, { status = 0, code = 'DESK_REQUEST_FAILED', offline = false } = {}) {
@@ -110,6 +111,53 @@ function requireSaveResponse(body) {
   return body;
 }
 
+function requireBatchPreviewResponse(body) {
+  if (!Array.isArray(body?.items) || body.items.length > BATCH_MAX_ITEMS) {
+    throw new DeskApiError('投递台返回的批量预览不完整，已拒绝继续。', {
+      code: 'INVALID_BATCH_PREVIEW_RESPONSE'
+    });
+  }
+  for (const item of body.items) {
+    if (!Number.isInteger(item?.index)) {
+      throw new DeskApiError('投递台返回的批量预览缺少岗位序号。', {
+        code: 'INVALID_BATCH_PREVIEW_RESPONSE'
+      });
+    }
+    if (item.error) {
+      if (!String(item.error.code || '').trim() || !String(item.error.message || '').trim()) {
+        throw new DeskApiError('投递台返回了无法识别的批量错误。', {
+          code: 'INVALID_BATCH_PREVIEW_RESPONSE'
+        });
+      }
+      continue;
+    }
+    try {
+      requirePreviewResponse(item);
+    } catch {
+      throw new DeskApiError('投递台返回的批量预览不完整，已拒绝保存。', {
+        code: 'INVALID_BATCH_PREVIEW_RESPONSE'
+      });
+    }
+  }
+  return body;
+}
+
+function requireBatchSaveResponse(body) {
+  if (!Array.isArray(body?.results) || body.results.length > BATCH_MAX_ITEMS) {
+    throw new DeskApiError('投递台没有确认批量保存结果，当前操作按失败处理。', {
+      code: 'INVALID_BATCH_SAVE_RESPONSE'
+    });
+  }
+  for (const result of body.results) {
+    if (!result?.job || typeof result.job !== 'object' || !String(result.job.id || '').trim()) {
+      throw new DeskApiError('投递台返回的批量保存结果缺少岗位编号。', {
+        code: 'INVALID_BATCH_SAVE_RESPONSE'
+      });
+    }
+  }
+  return body;
+}
+
 export function createDeskApi({ fetchImpl = globalThis.fetch, token, origin = DESK_ORIGIN } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
   const extensionToken = String(token || '').trim();
@@ -143,7 +191,13 @@ export function createDeskApi({ fetchImpl = globalThis.fetch, token, origin = DE
 
   return {
     preview: (job) => post('/api/jobs/preview', job, requirePreviewResponse),
-    save: (job) => post('/api/jobs', job, requireSaveResponse)
+    save: (job) => post('/api/jobs', job, requireSaveResponse),
+    batchPreview: (jobs) => post('/api/jobs/batch-preview', { jobs }, requireBatchPreviewResponse),
+    batchSave: (jobs, { forceSaveExcluded = false } = {}) => post(
+      '/api/jobs/batch',
+      { jobs, forceSaveExcluded: forceSaveExcluded === true },
+      requireBatchSaveResponse
+    )
   };
 }
 
@@ -214,8 +268,18 @@ function initializePopup() {
     pairToken: document.querySelector('#pair-token'),
     saveToken: document.querySelector('#save-token'),
     collectButton: document.querySelector('#collect-button'),
+    collectPageButton: document.querySelector('#collect-page-button'),
     idleView: document.querySelector('#idle-view'),
     loadingView: document.querySelector('#loading-view'),
+    batchView: document.querySelector('#batch-view'),
+    batchCount: document.querySelector('#batch-count'),
+    batchSummary: document.querySelector('#batch-summary'),
+    batchList: document.querySelector('#batch-list'),
+    batchSelectAll: document.querySelector('#batch-select-all'),
+    batchForceSaveWrap: document.querySelector('#batch-force-save-wrap'),
+    batchForceSave: document.querySelector('#batch-force-save'),
+    batchSave: document.querySelector('#batch-save'),
+    batchBack: document.querySelector('#batch-back'),
     jobForm: document.querySelector('#job-form'),
     messageView: document.querySelector('#message-view'),
     messageGlyph: document.querySelector('#message-glyph'),
@@ -241,6 +305,7 @@ function initializePopup() {
     token: '',
     connectionVerified: false,
     preview: null,
+    batchItems: [],
     missingFields: [],
     dirty: false
   };
@@ -251,7 +316,7 @@ function initializePopup() {
   }
 
   function showOnly(view) {
-    for (const candidate of [elements.idleView, elements.loadingView, elements.jobForm, elements.messageView]) {
+    for (const candidate of [elements.idleView, elements.loadingView, elements.batchView, elements.jobForm, elements.messageView]) {
       candidate.hidden = candidate !== view;
     }
   }
@@ -451,6 +516,153 @@ function initializePopup() {
     }
   }
 
+  function batchRouteLabel(match) {
+    if (match?.route === 'queue') return '推荐入队';
+    if (match?.route === 'review') return '建议复核';
+    return '低匹配';
+  }
+
+  function selectedBatchItems() {
+    return state.batchItems.filter((item) => item.selected && !item.error);
+  }
+
+  function updateBatchSelectionState() {
+    const selected = selectedBatchItems();
+    const selectedExcluded = selected.some((item) => item.match?.route === 'excluded');
+    const eligible = state.batchItems.filter((item) => !item.error && item.match?.route !== 'excluded');
+    elements.batchForceSaveWrap.hidden = !selectedExcluded;
+    elements.batchSave.disabled = selected.length === 0
+      || (selectedExcluded && !elements.batchForceSave.checked);
+    elements.batchSave.textContent = selected.length ? `保存所选 ${selected.length} 份` : '保存所选岗位';
+    elements.batchSummary.textContent = selected.length
+      ? `已选 ${selected.length} 份${selectedExcluded ? ' · 含低匹配' : ''}`
+      : '请至少勾选 1 份';
+    elements.batchSelectAll.checked = eligible.length > 0 && eligible.every((item) => item.selected);
+  }
+
+  function renderBatchPreview(response, totalVisible) {
+    state.connectionVerified = true;
+    renderConnectionStatus();
+    state.batchItems = response.items.map((item) => ({
+      ...item,
+      selected: Object.hasOwn(item, 'selected')
+        ? item.selected
+        : !item.error && item.match?.route !== 'excluded'
+    }));
+    elements.batchList.replaceChildren();
+    elements.batchCount.textContent = `${state.batchItems.length}/${BATCH_MAX_ITEMS}`;
+    for (const item of state.batchItems) {
+      const row = document.createElement('label');
+      row.className = 'batch-item';
+      if (item.error) row.classList.add('is-error');
+      if (item.match?.route === 'excluded') row.classList.add('is-excluded');
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = item.selected;
+      checkbox.disabled = Boolean(item.error);
+      checkbox.addEventListener('change', () => {
+        item.selected = checkbox.checked;
+        updateBatchSelectionState();
+      });
+
+      const main = document.createElement('div');
+      main.className = 'batch-item-main';
+      const title = document.createElement('div');
+      title.className = 'batch-item-title';
+      title.textContent = item.normalizedJob?.title || `第 ${Number(item.index) + 1} 份岗位`;
+      main.append(title);
+
+      const meta = document.createElement('div');
+      meta.className = item.error ? 'batch-item-error' : 'batch-item-meta';
+      meta.textContent = item.error
+        ? item.error.message
+        : [item.normalizedJob.company, item.normalizedJob.location, item.normalizedJob.salary]
+          .filter(Boolean)
+          .join(' · ') || '字段较少，请到投递台补充';
+      main.append(meta);
+
+      const side = document.createElement('div');
+      if (item.error) {
+        side.className = 'batch-item-route';
+        side.textContent = '无法评估';
+      } else {
+        const score = document.createElement('div');
+        score.className = 'batch-item-score';
+        score.textContent = String(Number(item.match.score));
+        const route = document.createElement('div');
+        route.className = 'batch-item-route';
+        route.textContent = item.duplicate
+          ? `已有记录 · ${item.duplicate.status || '未沟通'}`
+          : batchRouteLabel(item.match);
+        side.append(score, route);
+      }
+
+      row.append(checkbox, main, side);
+      elements.batchList.append(row);
+    }
+    if (Number(totalVisible) > state.batchItems.length) {
+      elements.batchSummary.textContent = `当前页 ${totalVisible} 份，已取前 ${state.batchItems.length} 份`;
+    }
+    elements.batchForceSave.checked = false;
+    showOnly(elements.batchView);
+    updateBatchSelectionState();
+    announce(`已评估 ${state.batchItems.length} 份可见岗位`);
+  }
+
+  async function collectCurrentPageJobs() {
+    showOnly(elements.loadingView);
+    announce('正在读取当前页面可见岗位');
+    try {
+      const tab = await queryActiveTab();
+      if (!tab?.id || !isAllowedBossUrl(tab.url)) {
+        throw new DeskApiError('请先打开 BOSS 直聘岗位搜索结果页，再点击批量采集。', {
+          code: 'NOT_BOSS_PAGE'
+        });
+      }
+      await executeScript({ target: { tabId: tab.id }, files: ['extract-current-page-jobs.js'] });
+      const results = await executeScript({
+        target: { tabId: tab.id },
+        func: () => globalThis.BossJobCollectorExtractPage(document, location)
+      });
+      const extracted = results?.[0]?.result;
+      if (!extracted || !Array.isArray(extracted.jobs) || extracted.jobs.length === 0) {
+        throw new DeskApiError('当前页面没有可批量评估的可见岗位。', { code: 'EMPTY_BATCH_EXTRACTION' });
+      }
+      const api = createDeskApi({ token: state.token });
+      const response = await api.batchPreview(
+        extracted.jobs.map((job) => makeJobPayload(job))
+      );
+      renderBatchPreview(response, extracted.totalVisible);
+    } catch (error) {
+      await handleError(error);
+    }
+  }
+
+  async function saveBatchJobs() {
+    const selected = selectedBatchItems();
+    const forceSaveExcluded = elements.batchForceSave.checked;
+    if (selected.length === 0 || (selected.some((item) => item.match?.route === 'excluded') && !forceSaveExcluded)) {
+      return;
+    }
+    elements.batchSave.disabled = true;
+    try {
+      const api = createDeskApi({ token: state.token });
+      const result = await api.batchSave(
+        selected.map((item) => makeJobPayload(item.normalizedJob, { forceSave: forceSaveExcluded })),
+        { forceSaveExcluded }
+      );
+      showMessage({
+        title: `已保存 ${result.results.length} 份岗位`,
+        copy: `新增 ${result.created} 份，更新 ${result.updated} 份。没有自动发送消息，请到投递台审核后自行沟通。`
+      });
+    } catch (error) {
+      await handleError(error);
+    } finally {
+      updateBatchSelectionState();
+    }
+  }
+
   async function saveCurrentJob() {
     if (state.dirty || !state.preview || !elements.jobForm.reportValidity()) return;
     const policy = getSavePolicy(state.preview, elements.forceSave.checked);
@@ -496,6 +708,7 @@ function initializePopup() {
 
   elements.saveToken.addEventListener('click', () => savePairToken().catch(handleError));
   elements.collectButton.addEventListener('click', collectCurrentJob);
+  elements.collectPageButton.addEventListener('click', collectCurrentPageJobs);
   elements.jobForm.addEventListener('submit', (event) => {
     event.preventDefault();
     requestPreview();
@@ -511,8 +724,23 @@ function initializePopup() {
   elements.saveButton.addEventListener('click', saveCurrentJob);
   elements.collectAgain.addEventListener('click', () => {
     state.preview = null;
+    state.batchItems = [];
     state.dirty = false;
     elements.forceSave.checked = false;
+    elements.batchForceSave.checked = false;
+    showOnly(elements.idleView);
+  });
+  elements.batchSelectAll.addEventListener('change', () => {
+    for (const item of state.batchItems) {
+      if (!item.error && item.match?.route !== 'excluded') item.selected = elements.batchSelectAll.checked;
+    }
+    renderBatchPreview({ items: state.batchItems }, state.batchItems.length);
+  });
+  elements.batchForceSave.addEventListener('change', updateBatchSelectionState);
+  elements.batchSave.addEventListener('click', saveBatchJobs);
+  elements.batchBack.addEventListener('click', () => {
+    state.batchItems = [];
+    elements.batchForceSave.checked = false;
     showOnly(elements.idleView);
   });
   elements.openOptions.addEventListener('click', () => chrome.runtime.openOptionsPage());
