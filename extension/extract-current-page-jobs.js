@@ -143,7 +143,22 @@
         if (detailLinks(root, baseHref).length) roots.push(root);
       }
     }
-    return roots.filter((root) => !roots.some((other) => other !== root && other.contains(root)));
+    const specificRoots = roots.filter((root) => !roots.some((other) => other !== root && other.contains(root)));
+    if (specificRoots.length) return specificRoots;
+
+    const fallbackRoots = [];
+    const fallbackSeen = new Set();
+    for (const anchor of documentRef.querySelectorAll('a[href]')) {
+      if (!isVisible(anchor) || !normalizeDetailUrl(anchor.getAttribute('href') || anchor.href, baseHref)) continue;
+      if (anchor.closest('.job-detail-page, .job-detail-container, .job-detail-box, .job-detail-content')) continue;
+      const container = anchor.closest('li, article, [role="listitem"]');
+      const root = container && detailLinks(container, baseHref).length === 1 ? container : anchor;
+      if (!fallbackSeen.has(root)) {
+        fallbackSeen.add(root);
+        fallbackRoots.push(root);
+      }
+    }
+    return fallbackRoots;
   }
 
   function extractCard(root, baseHref) {

@@ -208,6 +208,29 @@ test('batch extractor refuses a detail page and does not silently collect one jo
   assert.equal(error?.code, 'DETAIL_PAGE_NOT_BATCH');
 });
 
+test('batch extractor falls back to visible detail links when card class names change', async () => {
+  const html = `<!doctype html><html><body>
+    <main class="layout-vnext">
+      <section><a href="/job_detail/vnext-agent.html">Agent 应用实习生</a></section>
+      <section><a href="/job_detail/vnext-data.html">数据分析实习生</a></section>
+    </main>
+  </body></html>`;
+  const result = await withPage(html, async (page) => {
+    await page.addScriptTag({ path: pageExtractorPath });
+    return page.evaluate(() => globalThis.BossJobCollectorExtractPage(document, {
+      hostname: 'www.zhipin.com',
+      href: 'https://www.zhipin.com/web/geek/job?query=AI',
+      pathname: '/web/geek/job'
+    }));
+  });
+
+  assert.deepEqual(result.jobs.map((job) => job.title), ['Agent 应用实习生', '数据分析实习生']);
+  assert.deepEqual(result.jobs.map((job) => job.url), [
+    'https://www.zhipin.com/job_detail/vnext-agent.html',
+    'https://www.zhipin.com/job_detail/vnext-data.html'
+  ]);
+});
+
 test('refuses an expanded detail when it has no unique job detail URL', async () => {
   const html = `<!doctype html><html><body>
     <section class="job-detail-container active">
